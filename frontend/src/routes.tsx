@@ -5,8 +5,10 @@ import VideoAnalysis from "./pages/VideoAnalysis";
 import CoursePlanning from "./pages/CoursePlanning";
 import QuestionnaireManagement from "./pages/QuestionnaireManagement";
 import PhotoProcessing from "./pages/PhotoProcessing";
+import Login from "./pages/Login";
 
 export const router = createBrowserRouter([
+  { path: "/login", Component: Login },
   {
     path: "/",
     Component: Layout,
