@@ -4,8 +4,12 @@ from app.models.agent_session import AgentSession
 from app.models.agent_message import AgentMessage
 from app.models.course import Course
 from app.models.course_pose import CoursePose
+from app.models.survey import Survey
+from app.models.survey_question import SurveyQuestion
+from app.models.survey_response import SurveyResponse
 
 __all__ = [
     "User", "AgentConfig", "AgentSession", "AgentMessage",
     "Course", "CoursePose",
+    "Survey", "SurveyQuestion", "SurveyResponse",
 ]
