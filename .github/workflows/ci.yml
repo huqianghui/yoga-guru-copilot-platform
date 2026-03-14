@@ -185,3 +185,23 @@ jobs:
             done
             echo "Backend health check failed"
             exit 1
+
+      - name: Print deployment URLs
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            BACKEND_FQDN=$(az containerapp show \
+              --name yoga-guru-backend \
+              --resource-group ${{ vars.RESOURCE_GROUP }} \
+              --query 'properties.configuration.ingress.fqdn' -o tsv)
+            FRONTEND_FQDN=$(az containerapp show \
+              --name yoga-guru-frontend \
+              --resource-group ${{ vars.RESOURCE_GROUP }} \
+              --query 'properties.configuration.ingress.fqdn' -o tsv)
+            echo "============================================"
+            echo "  Deployment Complete!"
+            echo "============================================"
+            echo "  Frontend: https://${FRONTEND_FQDN}"
+            echo "  Backend:  https://${BACKEND_FQDN}"
+            echo "  Health:   https://${BACKEND_FQDN}/api/health"
+            echo "============================================"

@@ -2,6 +2,14 @@
 
 瑜伽老师的智能助手平台，帮助老师管理课程、分析教学视频、处理照片并生成朋友圈内容。
 
+## Deployment URLs
+
+| Service  | URL |
+|----------|-----|
+| Frontend | https://yoga-guru-frontend.bluedesert-3de420f7.eastus.azurecontainerapps.io/ |
+| Backend  | https://yoga-guru-backend.bluedesert-3de420f7.eastus.azurecontainerapps.io/ |
+| Health Check | https://yoga-guru-backend.bluedesert-3de420f7.eastus.azurecontainerapps.io/api/health |
+
 ## 功能模块
 
 - **仪表板** - 数据概览、快捷操作、近期动态
@@ -12,12 +20,25 @@
 
 ## 技术栈
 
-- **React 18** + **TypeScript**
-- **Vite 6** 构建工具
-- **Tailwind CSS v4** 样式系统
-- **React Router v7** 路由
-- **Lucide React** 图标库
-- **shadcn/ui** 组件模式（Radix UI）
+### 前端
+- **React 18** + **TypeScript** + **Vite 6**
+- **Tailwind CSS v4** + Glassmorphism 玻璃拟态风格
+- **TanStack Query v5** + **React Router v7**
+- **Lucide React** 图标 + **shadcn/ui** 组件模式
+
+### 后端
+- **Python 3.11** + **FastAPI**
+- **SQLAlchemy (async)** + **Alembic** 迁移
+- **JWT 认证** (python-jose)
+
+### AI 服务
+- **Azure OpenAI** (GPT-4o) — 主要 LLM
+- **Anthropic Claude** / **OpenAI Native** — 多适配器支持
+- **Azure Content Understanding** — 视频分析
+
+### 基础设施
+- **Azure Container Apps** + **ACR**
+- **GitHub Actions** CI/CD (OIDC 认证)
 
 ## 设计系统
 
@@ -30,14 +51,16 @@
 ## 快速开始
 
 ```bash
-# 安装依赖
+# Backend (port 8000)
+cd backend
+pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --port 8000
+# 首次启动自动建表 + 种子数据
+
+# Frontend (port 5173)
+cd frontend
 npm install
-
-# 启动开发服务器
 npm run dev
-
-# 构建生产版本
-npm run build
 ```
 
 ## 项目结构
