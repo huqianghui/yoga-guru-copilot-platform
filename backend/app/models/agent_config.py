@@ -20,3 +20,14 @@ class AgentConfig(TimestampMixin, Base):
     model_config_json: Mapped[dict] = mapped_column(
         JSON, default=dict, name="model_config"
     )
+
+    # === System Agent fields ===
+    agent_type: Mapped[str] = mapped_column(String(20), default="copilot")
+    # agent_type: "copilot" (LLM chat) | "system" (CLI tool)
+    modes: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    provider: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    model_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    install_hint: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    tools: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    mcp_servers: Mapped[list | None] = mapped_column(JSON, nullable=True)
