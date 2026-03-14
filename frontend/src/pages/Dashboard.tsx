@@ -10,13 +10,16 @@ import {
   IconBox,
   Badge,
 } from "@/components/shared";
+import { useDashboardStats } from "@/hooks/useDashboard";
 
 export default function Dashboard() {
+  const { data: dashboardStats } = useDashboardStats();
+
   const stats = [
-    { label: "已分析视频", value: "12", icon: Video, color: "purple" as const },
-    { label: "课程序列", value: "8", icon: Calendar, color: "green" as const },
-    { label: "学员反馈", value: "156", icon: Users, color: "amber" as const },
-    { label: "生成问卷", value: "24", icon: FileQuestion, color: "pink" as const },
+    { label: "已分析视频", value: dashboardStats?.videos ?? 0, icon: Video, color: "purple" as const },
+    { label: "课程序列", value: dashboardStats?.courses ?? 0, icon: Calendar, color: "green" as const },
+    { label: "学员反馈", value: dashboardStats?.feedbacks ?? 0, icon: Users, color: "amber" as const },
+    { label: "生成问卷", value: dashboardStats?.surveys ?? 0, icon: FileQuestion, color: "pink" as const },
   ];
 
   const quickActions = [

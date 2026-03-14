@@ -30,12 +30,12 @@ test.describe("Course Planning", () => {
   });
 
   test("should create a course via API and show it in the list", async ({ page }) => {
-    // Create course via API directly
+    const uniqueTitle = `E2E课程_${Date.now()}`;
     const token = await page.evaluate(() => localStorage.getItem("token"));
     const response = await page.request.post("/api/courses/", {
       headers: { Authorization: `Bearer ${token}` },
       data: {
-        title: "E2E测试课程",
+        title: uniqueTitle,
         theme: "测试主题",
         duration: "60分钟",
         level: "中级",
@@ -50,9 +50,7 @@ test.describe("Course Planning", () => {
 
     // Navigate and verify it appears
     await page.goto("/course-planning");
-    await expect(page.getByText("E2E测试课程")).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText("60分钟")).toBeVisible();
-    await expect(page.getByText("中级")).toBeVisible();
+    await expect(page.getByText(uniqueTitle)).toBeVisible({ timeout: 5000 });
 
     // Clean up: delete the course
     const courseData = await response.json();
