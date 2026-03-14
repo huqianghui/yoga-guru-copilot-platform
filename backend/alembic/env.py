@@ -8,10 +8,7 @@ from alembic import context
 
 # Import Base and all models so metadata includes all tables
 from app.database import Base
-from app.models.user import User  # noqa: F401
-from app.models.agent_config import AgentConfig  # noqa: F401
-from app.models.agent_session import AgentSession  # noqa: F401
-from app.models.agent_message import AgentMessage  # noqa: F401
+import app.models  # noqa: F401 — registers all models with Base.metadata
 from app.config import get_settings
 
 config = context.config
