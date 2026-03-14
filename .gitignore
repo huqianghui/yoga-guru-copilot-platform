@@ -53,3 +53,14 @@ coverage/
 
 # Superpowers brainstorm sessions
 .superpowers/
+
+# Ralph Loop state files
+.ralph-progress.md
+RALPH-PROMPT.md
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
+
+# Upload directory
+uploads/
