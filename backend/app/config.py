@@ -5,6 +5,7 @@ from functools import lru_cache
 class Settings(BaseSettings):
     # App
     app_name: str = "Yoga Guru Copilot Platform"
+    app_domain: str = ""
     debug: bool = True
 
     # Database

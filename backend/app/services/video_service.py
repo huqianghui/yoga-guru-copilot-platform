@@ -1,4 +1,6 @@
 import json
+import logging
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -8,6 +10,8 @@ from app.models.video_frame import VideoFrame
 from app.services.agents.base import AgentRequest, AgentContext
 from app.services.agents.dispatcher import dispatch
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 async def create_video(
@@ -64,8 +68,44 @@ async def analyze_video(db: AsyncSession, video_id: str) -> VideoAnalysis:
 
     # Try Azure Content Understanding first
     if settings.azure_cu_endpoint and settings.azure_cu_key:
-        # TODO: Implement real Azure CU call in production
-        pass
+        try:
+            from app.services.azure_cu_service import analyze_video_with_cu
+
+            video_url = f"https://{settings.app_domain or 'localhost'}/uploads/videos/{video.filename}"
+            cu_result = await analyze_video_with_cu(
+                settings.azure_cu_endpoint, settings.azure_cu_key, video_url
+            )
+
+            analysis = VideoAnalysis(
+                video_id=video.id,
+                teaching_style=cu_result.get("teaching_style", ""),
+                rhythm=cu_result.get("rhythm", ""),
+                guidance_method=cu_result.get("guidance_method", ""),
+                core_philosophy=cu_result.get("core_philosophy", ""),
+                high_freq_words=[],
+                raw_result=cu_result.get("raw_result", {}),
+            )
+            db.add(analysis)
+
+            # Extract key moments as frames
+            for moment in cu_result.get("key_moments", []):
+                frame = VideoFrame(
+                    video_id=video.id,
+                    frame_path="",
+                    timestamp=moment.get("timestamp", "00:00"),
+                    frame_type=moment.get("frame_type", "quality"),
+                    pose_name=moment.get("pose_name", ""),
+                    description=moment.get("description", ""),
+                )
+                db.add(frame)
+
+            video.status = "analyzed"
+            await db.commit()
+            await db.refresh(video)
+            return video
+
+        except Exception as e:
+            logger.warning(f"Azure CU analysis failed, falling back to agent: {e}")
 
     # Fallback: Use Video Analyzer Copilot to generate analysis
     prompt = f"""请对以下瑜伽教学视频进行分析：
