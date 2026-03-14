@@ -19,8 +19,7 @@ docs/superpowers/
   │   ├── 2026-03-14-phase-d-*.md      ←   Phase D 计划
   │   └── ...
 docs/issues/                           ← Bug 追踪：YYYY-MM-DD-<bug>.md
-docs/references/superpowers-skills/    ← Superpowers 技能参考（只读）
-.claude/skills/                        ← 项目 Slash Commands（/brainstorm, /dev 等）
+.claude/skills/                        ← Superpowers 原生 Skills（从 obra/superpowers 拷贝）
 ```
 
 ### 查阅指引
@@ -31,7 +30,7 @@ docs/references/superpowers-skills/    ← Superpowers 技能参考（只读）
 | 某个 Phase 的具体实施步骤？ | `docs/superpowers/plans/2026-03-14-phase-{d,a,c,b}-*.md` |
 | 某个新功能的设计提案？ | `docs/superpowers/specs/YYYY-MM-DD-<feature>.md` |
 | 某个 bug 的追踪记录？ | `docs/issues/YYYY-MM-DD-<bug>.md` |
-| Superpowers 各 skill 怎么用？ | `docs/references/superpowers-skills/<skill>/SKILL.md` |
+| Superpowers 各 skill 怎么用？ | `.claude/skills/<skill>/SKILL.md` |
 | 怎么跑项目？怎么提交？代码怎么写？ | **本文件 (CLAUDE.md)** |
 
 ### 不重叠原则
@@ -91,32 +90,20 @@ Delta Spec 文件规范：
 
 ---
 
-## 3. 项目 Slash Commands
+## 3. 快捷指令
 
-以下命令在 `.claude/skills/` 中定义，输入 `/` 可触发：
+中文自然语言自动映射到 superpowers skills：
 
-| 命令 | 用途 | 何时用 |
-|------|------|--------|
-| `/brainstorm <描述>` | 头脑风暴，设计新功能 | 有新想法时 |
-| `/plan <spec路径>` | 从 spec 生成实施计划 | spec 确认后 |
-| `/dev <plan路径>` | 子 agent 驱动开发 | 开始写代码 |
-| `/debug <问题>` | 系统化调试 | 遇到 bug 时 |
-| `/review <范围>` | 代码审查 | 功能完成后 |
-| `/verify` | 运行全部检查 | 提交前 |
-| `/delta-spec <描述>` | 创建增量需求 (v1.0+) | 新功能迭代 |
-| `/bug-fix <描述>` | Bug 追踪与修复 (v1.0+) | 线上/测试 bug |
-
-**中文快捷映射**（自然语言也可触发）:
-
-| 用户说 | 等同于 |
-|--------|--------|
-| "开始开发" / "执行计划" | `/dev` |
-| "头脑风暴" / "设计新功能" | `/brainstorm` 或 `/delta-spec` |
-| "写计划" / "制定开发计划" | `/plan` |
-| "调试" / "排查问题" | `/debug` |
-| "代码审查" | `/review` |
-| "验证完成" | `/verify` |
-| "修 bug" / "有个 bug" | `/bug-fix` |
+| 用户说 | 执行的 Skill |
+|--------|-------------|
+| "开始开发" / "执行计划" | `superpowers:subagent-driven-development` |
+| "头脑风暴" / "设计新功能" | `superpowers:brainstorming` |
+| "写计划" / "制定开发计划" | `superpowers:writing-plans` |
+| "调试" / "排查问题" | `superpowers:systematic-debugging` |
+| "代码审查" / "review" | `superpowers:requesting-code-review` |
+| "完成开发" / "准备合并" | `superpowers:finishing-a-development-branch` |
+| "并行执行" | `superpowers:dispatching-parallel-agents` |
+| "验证完成" | `superpowers:verification-before-completion` |
 
 ---
 
@@ -318,4 +305,4 @@ result = await do_work(db)  # session 泄露!
 - `.env` 文件不提交，使用 `backend/.env.example` 作为模板
 - 开发环境不需要 Azure 凭证，MockAgentAdapter 提供回退
 - WebSocket 通过 Vite proxy 转发，前端使用相对路径
-- `docs/references/superpowers-skills/` 是只读参考，不要修改
+- `.claude/skills/` 是 superpowers 原生 skills，不要修改
