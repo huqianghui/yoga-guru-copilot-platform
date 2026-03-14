@@ -36,8 +36,9 @@ coverage/
 # Playwright MCP
 .playwright-mcp/
 
-# Claude
-.claude/
+# Claude (ignore settings, keep skills for team sharing)
+.claude/*
+!.claude/skills/
 
 # Superpowers brainstorm sessions
 .superpowers/
