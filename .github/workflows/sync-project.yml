@@ -1,0 +1,20 @@
+name: Sync Plans to GitHub Project
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/superpowers/plans/**'
+
+jobs:
+  sync-project:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync plan tasks to GitHub Project
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_PAT }}
+        run: bash .github/scripts/sync-plans-project.sh
