@@ -188,7 +188,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import engine, Base
-from app.routers import auth, users, agents, dashboard
 
 
 @asynccontextmanager
@@ -215,10 +214,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-app.include_router(users.router, prefix="/api/users", tags=["users"])
-app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
-app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
+
+def register_routers():
+    """Register routers — called after all router modules exist."""
+    from app.routers import auth, users, agents, dashboard
+    app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+    app.include_router(users.router, prefix="/api/users", tags=["users"])
+    app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
+    app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
+
+
+register_routers()
 
 
 @app.get("/api/health")
@@ -1054,14 +1060,15 @@ git commit -m "feat(backend): add Azure OpenAI and Mock agent adapters"
 
 ```python
 # backend/app/utils/exceptions.py
+from typing import NoReturn
 from fastapi import HTTPException, status
 
 
-def not_found(detail: str = "Not found"):
+def not_found(detail: str = "Not found") -> NoReturn:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
-def bad_request(detail: str = "Bad request"):
+def bad_request(detail: str = "Bad request") -> NoReturn:
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 ```
 
