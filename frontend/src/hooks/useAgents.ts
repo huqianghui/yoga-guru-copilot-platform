@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { agentsApi } from "@/api/agents";
+import type { AgentConfigCreate, AgentConfigUpdate } from "@/types/agent";
 
 export function useAgentList() {
   return useQuery({
@@ -20,5 +21,37 @@ export function useAgentMessages(sessionId: string | null) {
     queryKey: ["agent-messages", sessionId],
     queryFn: () => agentsApi.getMessages(sessionId!),
     enabled: !!sessionId,
+  });
+}
+
+export function useAdapters() {
+  return useQuery({
+    queryKey: ["adapters"],
+    queryFn: agentsApi.listAdapters,
+  });
+}
+
+export function useCreateAgentConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AgentConfigCreate) => agentsApi.createConfig(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents"] }),
+  });
+}
+
+export function useUpdateAgentConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, body }: { name: string; body: AgentConfigUpdate }) =>
+      agentsApi.updateConfig(name, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents"] }),
+  });
+}
+
+export function useDeleteAgentConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => agentsApi.deleteConfig(name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents"] }),
   });
 }

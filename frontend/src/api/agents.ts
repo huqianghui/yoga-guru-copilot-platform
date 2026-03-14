@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { AgentConfig, AgentSession, AgentMessage, AgentEvent } from "@/types/agent";
+import type { AgentConfig, AgentSession, AgentMessage, AgentEvent, AgentConfigAdmin, AgentConfigCreate, AgentConfigUpdate, AdapterInfo } from "@/types/agent";
 
 export const agentsApi = {
   list: () =>
@@ -18,6 +18,19 @@ export const agentsApi = {
 
   createSession: (agentName: string) =>
     apiClient.post<AgentSession>("/agents/sessions", { agent_name: agentName }).then((r) => r.data),
+
+  // Admin methods
+  listAdapters: () =>
+    apiClient.get<AdapterInfo[]>("/agents/adapters").then((r) => r.data),
+
+  createConfig: (body: AgentConfigCreate) =>
+    apiClient.post<AgentConfigAdmin>("/agents/configs", body).then((r) => r.data),
+
+  updateConfig: (name: string, body: AgentConfigUpdate) =>
+    apiClient.patch<AgentConfigAdmin>(`/agents/configs/${name}`, body).then((r) => r.data),
+
+  deleteConfig: (name: string) =>
+    apiClient.delete(`/agents/configs/${name}`),
 };
 
 export class AgentWebSocket {

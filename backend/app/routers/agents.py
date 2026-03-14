@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -11,8 +11,13 @@ from app.schemas.agent import (
     AgentConfigResponse, AgentConfigDetail, CreateSessionRequest,
     SessionResponse, ChatRequest, MessageResponse, AgentEventResponse,
 )
+from app.schemas.agent_config import (
+    AgentConfigAdminResponse, AgentConfigCreate, AgentConfigUpdate, AdapterInfo,
+)
 from app.services.agents import session_proxy, dispatcher
 from app.services.agents.base import AgentRequest, AgentContext
+from app.services.agents.registry import registry
+from app.routers.admin import require_admin
 
 router = APIRouter()
 
@@ -21,6 +26,95 @@ router = APIRouter()
 async def list_agents(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(AgentConfig).where(AgentConfig.available == True))  # noqa: E712
     return list(result.scalars().all())
+
+
+# --- Admin CRUD endpoints (MUST be before /{agent_name} to avoid route conflicts) ---
+
+
+@router.get("/adapters", response_model=list[AdapterInfo])
+async def list_adapters(_: User = Depends(require_admin)):
+    """List all registered AI adapters and their availability."""
+    result = []
+    for name, adapter in registry.list_all().items():
+        available = await adapter.is_available()
+        result.append(AdapterInfo(name=name, available=available))
+    return result
+
+
+@router.post("/configs", response_model=AgentConfigAdminResponse, status_code=201)
+async def create_agent_config(
+    body: AgentConfigCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Create a new agent configuration."""
+    existing = await db.execute(
+        select(AgentConfig).where(AgentConfig.name == body.name)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail=f"Agent '{body.name}' already exists")
+
+    agent = AgentConfig(
+        name=body.name,
+        display_name=body.display_name,
+        icon=body.icon,
+        description=body.description,
+        system_prompt=body.system_prompt,
+        skills=body.skills,
+        preferred_agent=body.preferred_agent,
+        fallback_agents=body.fallback_agents,
+        available=body.available,
+        model_config_json=body.model_config_json,
+    )
+    db.add(agent)
+    await db.commit()
+    await db.refresh(agent)
+    return agent
+
+
+@router.patch("/configs/{agent_name}", response_model=AgentConfigAdminResponse)
+async def update_agent_config(
+    agent_name: str,
+    body: AgentConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Update an existing agent configuration."""
+    result = await db.execute(
+        select(AgentConfig).where(AgentConfig.name == agent_name)
+    )
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    update_data = body.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(agent, key, value)
+
+    await db.commit()
+    await db.refresh(agent)
+    return agent
+
+
+@router.delete("/configs/{agent_name}", status_code=204)
+async def delete_agent_config(
+    agent_name: str,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Delete an agent configuration."""
+    result = await db.execute(
+        select(AgentConfig).where(AgentConfig.name == agent_name)
+    )
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    await db.delete(agent)
+    await db.commit()
+
+
+# --- Public endpoints ---
 
 
 @router.get("/{agent_name}", response_model=AgentConfigDetail)

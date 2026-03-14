@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     azure_cu_endpoint: str = ""
     azure_cu_key: str = ""
 
+    # Anthropic Claude
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-20250514"
+
+    # OpenAI (direct, non-Azure)
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

@@ -20,6 +20,10 @@ class AgentRegistry:
     def list_available(self) -> list[str]:
         return list(self._adapters.keys())
 
+    def list_all(self) -> dict[str, BaseAgentAdapter]:
+        """Return all registered adapters."""
+        return dict(self._adapters)
+
     async def check_availability(self, name: str) -> bool:
         adapter = self.get(name)
         if not adapter:
