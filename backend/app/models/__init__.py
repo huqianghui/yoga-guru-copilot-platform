@@ -7,9 +7,13 @@ from app.models.course_pose import CoursePose
 from app.models.survey import Survey
 from app.models.survey_question import SurveyQuestion
 from app.models.survey_response import SurveyResponse
+from app.models.video import Video
+from app.models.video_analysis import VideoAnalysis
+from app.models.video_frame import VideoFrame
 
 __all__ = [
     "User", "AgentConfig", "AgentSession", "AgentMessage",
     "Course", "CoursePose",
     "Survey", "SurveyQuestion", "SurveyResponse",
+    "Video", "VideoAnalysis", "VideoFrame",
 ]
