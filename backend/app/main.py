@@ -32,7 +32,8 @@ app.add_middleware(
 
 def register_routers():
     """Register routers — called after all router modules exist."""
-    from app.routers import auth, users, agents, dashboard, courses, surveys, videos
+    from app.routers import auth, users, agents, dashboard, courses, surveys, videos, health
+    app.include_router(health.router, prefix="/api", tags=["health"])
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
     app.include_router(users.router, prefix="/api/users", tags=["users"])
     app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
@@ -51,8 +52,3 @@ from fastapi.staticfiles import StaticFiles
 _uploads_dir = Path(__file__).parent.parent / "uploads"
 _uploads_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
-
-
-@app.get("/api/health")
-async def health_check():
-    return {"status": "ok"}
