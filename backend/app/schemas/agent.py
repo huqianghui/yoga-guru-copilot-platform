@@ -11,8 +11,14 @@ class AgentConfigResponse(BaseModel):
     available: bool
     skills: list[str]
     preferred_agent: str
+    agent_type: str = "copilot"
+    modes: list[str] | None = None
+    version: str | None = None
+    provider: str | None = None
+    model_name: str | None = None
+    install_hint: str | None = None
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "protected_namespaces": ()}
 
 
 class AgentConfigDetail(AgentConfigResponse):

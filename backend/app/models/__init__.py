@@ -11,6 +11,8 @@ from app.models.video import Video
 from app.models.video_analysis import VideoAnalysis
 from app.models.video_frame import VideoFrame
 from app.models.service_config import ServiceConfig
+from app.models.skill import Skill
+from app.models.agent_skill import AgentSkill
 
 __all__ = [
     "User", "AgentConfig", "AgentSession", "AgentMessage",
@@ -18,4 +20,5 @@ __all__ = [
     "Survey", "SurveyQuestion", "SurveyResponse",
     "Video", "VideoAnalysis", "VideoFrame",
     "ServiceConfig",
+    "Skill", "AgentSkill",
 ]
