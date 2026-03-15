@@ -8,6 +8,7 @@ import PhotoProcessing from "./pages/PhotoProcessing";
 import AdminSettings from "./pages/AdminSettings";
 import AdminAgents from "./pages/AdminAgents";
 import AdminSkills from "./pages/AdminSkills";
+import AgentPlayground from "./pages/AgentPlayground";
 import Login from "./pages/Login";
 
 export const router = createBrowserRouter([
@@ -21,6 +22,7 @@ export const router = createBrowserRouter([
       { path: "course-planning", Component: CoursePlanning },
       { path: "questionnaire", Component: QuestionnaireManagement },
       { path: "photo-processing", Component: PhotoProcessing },
+      { path: "playground", Component: AgentPlayground },
       { path: "admin/settings", Component: AdminSettings },
       { path: "admin/agents", Component: AdminAgents },
       { path: "admin/skills", Component: AdminSkills },

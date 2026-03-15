@@ -31,6 +31,30 @@ export function useAdapters() {
   });
 }
 
+export function useRefreshAgents() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: agentsApi.refreshAgents,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents"] }),
+  });
+}
+
+export function useAgentLocalConfig(name: string) {
+  return useQuery({
+    queryKey: ["agent-local-config", name],
+    queryFn: () => agentsApi.getAgentLocalConfig(name),
+    enabled: !!name,
+  });
+}
+
+export function useDeleteSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: string) => agentsApi.deleteSession(sessionId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-sessions"] }),
+  });
+}
+
 export function useCreateAgentConfig() {
   const qc = useQueryClient();
   return useMutation({

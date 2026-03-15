@@ -13,12 +13,17 @@ export interface AgentConfig {
   provider?: string;
   model_name?: string;
   install_hint?: string;
+  tools?: string[];
+  mcp_servers?: string[];
 }
 
 export interface AgentSession {
   id: string;
   agent_name: string;
   title: string;
+  mode: string;
+  source: string;
+  native_session_id?: string;
   created_at: string;
 }
 
@@ -30,7 +35,7 @@ export interface AgentMessage {
 }
 
 export interface AgentEvent {
-  type: "text" | "error" | "done" | "session";
+  type: "text" | "code" | "error" | "done" | "session";
   content?: string;
   session_id?: string;
 }

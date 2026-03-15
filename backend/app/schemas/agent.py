@@ -17,6 +17,8 @@ class AgentConfigResponse(BaseModel):
     provider: str | None = None
     model_name: str | None = None
     install_hint: str | None = None
+    tools: list[str] | None = None
+    mcp_servers: list[str] | None = None
 
     model_config = {"from_attributes": True, "protected_namespaces": ()}
 
@@ -29,12 +31,17 @@ class AgentConfigDetail(AgentConfigResponse):
 
 class CreateSessionRequest(BaseModel):
     agent_name: str
+    mode: str = "ask"
+    source: str = "playground"
 
 
 class SessionResponse(BaseModel):
     id: str
     agent_name: str
     title: str
+    mode: str = "ask"
+    source: str = "playground"
+    native_session_id: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -55,6 +62,6 @@ class MessageResponse(BaseModel):
 
 
 class AgentEventResponse(BaseModel):
-    type: str  # text | error | done
+    type: str  # text | code | error | done
     content: str = ""
     session_id: str = ""

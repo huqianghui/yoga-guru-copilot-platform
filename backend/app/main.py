@@ -5,13 +5,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: ensure tables + seed data (idempotent)
+    # Register agent adapters FIRST — discovery needs them to probe CLI tools
+    from app.services.agents.adapters import register_all_adapters
+    register_all_adapters()
+    # Then ensure tables + seed data (includes agent discovery)
     from app.services.startup import ensure_tables, seed_initial_data
     await ensure_tables()
     await seed_initial_data()
-    # Register agent adapters
-    from app.services.agents.adapters import register_all_adapters
-    register_all_adapters()
     yield
 
 

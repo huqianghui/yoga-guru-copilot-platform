@@ -1,0 +1,133 @@
+"""Claude Code CLI adapter with streaming text output."""
+
+import asyncio
+import json
+import logging
+from collections.abc import AsyncGenerator
+
+from app.services.agents.base import (
+    AgentEvent,
+    AgentRequest,
+    BaseAgentAdapter,
+    check_command,
+    get_command_output,
+    read_json_config,
+    read_json_config_raw,
+    stream_subprocess,
+)
+
+logger = logging.getLogger(__name__)
+
+_CLAUDE_CODE_TOOLS = [
+    "Read", "Write", "Edit", "Bash", "Glob", "Grep",
+    "WebSearch", "WebFetch", "Agent", "NotebookEdit",
+]
+
+_CHUNK_SIZE = 12
+_CHUNK_DELAY = 0.03
+
+
+class ClaudeCodeAdapter(BaseAgentAdapter):
+    name = "claude-code"
+
+    async def is_available(self) -> bool:
+        return await check_command("claude")
+
+    async def get_version(self) -> str | None:
+        return await get_command_output("claude", "--version")
+
+    async def get_tools(self) -> list[str]:
+        return list(_CLAUDE_CODE_TOOLS)
+
+    async def get_config(self) -> dict:
+        """Read Claude Code settings from ~/.claude/settings.json."""
+        config: dict = {}
+        settings = read_json_config("~/.claude/settings.json")
+        if settings:
+            config["settings"] = settings
+        local = read_json_config("~/.claude/settings.local.json")
+        if local:
+            config["settings_local"] = local
+        return config
+
+    def get_subprocess_env(self) -> dict[str, str]:
+        """Inject env vars from ~/.claude/settings.json into subprocess.
+
+        Ensures ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, etc. are
+        available even when ``claude login`` session has expired.
+        """
+        raw = read_json_config_raw("~/.claude/settings.json")
+        env_section = raw.get("env", {})
+        if isinstance(env_section, dict):
+            return {k: str(v) for k, v in env_section.items() if v is not None}
+        return {}
+
+    async def get_mcp_servers(self) -> list[str]:
+        """Detect configured MCP servers via `claude mcp list`."""
+        try:
+            raw = await get_command_output("claude", "mcp", "list")
+            if not raw:
+                return []
+            # Try JSON parse first
+            try:
+                data = json.loads(raw)
+                if isinstance(data, list):
+                    return [s.get("name", str(s)) if isinstance(s, dict) else str(s) for s in data]
+            except json.JSONDecodeError:
+                pass
+            # Fallback: parse text lines (each line = server name or "name - scope")
+            servers = []
+            for line in raw.strip().splitlines():
+                line = line.strip()
+                if line and not line.startswith(("─", "No MCP")):
+                    name = line.split()[0] if line.split() else line
+                    servers.append(name)
+            return servers
+        except Exception:
+            logger.debug("Failed to detect MCP servers", exc_info=True)
+            return []
+
+    async def execute(self, request: AgentRequest) -> AsyncGenerator[AgentEvent, None]:
+        cmd = [
+            "claude",
+            "-p",
+            request.prompt,
+            "--output-format",
+            "stream-json",
+            "--verbose",
+        ]
+        if request.session_id:
+            cmd.extend(["--resume", request.session_id])
+
+        async for event in stream_subprocess(cmd, extra_env=self.get_subprocess_env()):
+            meta = event.metadata
+            event_type = meta.get("type", "") if meta else ""
+
+            # system init → extract session_id
+            if event_type == "system" and meta.get("subtype") == "init":
+                sid = meta.get("session_id", "")
+                yield AgentEvent(type="session_init", content="", session_id=sid)
+                continue
+
+            # result → skip (duplicate text already sent via assistant)
+            if event_type == "result":
+                sid = meta.get("session_id", "")
+                if sid:
+                    yield AgentEvent(type="session_init", content="", session_id=sid)
+                continue
+
+            # assistant / text with content → stream in chunks
+            if event.content:
+                text = event.content
+                if len(text) <= _CHUNK_SIZE:
+                    yield AgentEvent(type="text", content=text)
+                else:
+                    for i in range(0, len(text), _CHUNK_SIZE):
+                        chunk = text[i: i + _CHUNK_SIZE]
+                        yield AgentEvent(type="text", content=chunk)
+                        await asyncio.sleep(_CHUNK_DELAY)
+                continue
+
+            # error → pass through
+            if event.type == "error":
+                yield event

@@ -139,7 +139,7 @@ SYSTEM_AGENTS = [
         "description": "Anthropic's agentic coding tool — plan, code, debug via CLI",
         "system_prompt": "",
         "agent_type": "system",
-        "preferred_agent": "mock",
+        "preferred_agent": "claude-code",
         "modes": ["plan", "ask", "code"],
         "provider": "Anthropic",
         "model_name": "claude-sonnet-4",
@@ -155,7 +155,7 @@ SYSTEM_AGENTS = [
         "description": "OpenAI's open-source coding agent — lightweight CLI for code tasks",
         "system_prompt": "",
         "agent_type": "system",
-        "preferred_agent": "mock",
+        "preferred_agent": "codex-cli",
         "modes": ["ask", "code"],
         "provider": "OpenAI",
         "model_name": "o4-mini",
@@ -171,7 +171,7 @@ SYSTEM_AGENTS = [
         "description": "GitHub's AI pair programmer — code completion and chat",
         "system_prompt": "",
         "agent_type": "system",
-        "preferred_agent": "mock",
+        "preferred_agent": "copilot-cli",
         "modes": ["ask", "code"],
         "provider": "GitHub / Microsoft",
         "model_name": "gpt-4o",
@@ -281,6 +281,29 @@ async def seed_initial_data():
         await _seed_system_agents(db)
         await _seed_default_skills(db)
         await db.commit()
+
+    # Run discovery after seeding (needs separate session since seed already committed)
+    try:
+        from app.services.agents.discovery import discover_all_agents, ADAPTER_TO_CONFIG_NAME
+        results = await discover_all_agents()
+        async with AsyncSessionLocal() as db:
+            for info in results:
+                config_name = ADAPTER_TO_CONFIG_NAME.get(info["name"], info["name"])
+                result = await db.execute(select(AgentConfig).where(AgentConfig.name == config_name))
+                config = result.scalar_one_or_none()
+                if config:
+                    config.available = info.get("available", False)
+                    if "version" in info:
+                        config.version = info["version"]
+                    if "tools" in info:
+                        config.tools = info["tools"]
+                    if "mcp_servers" in info:
+                        config.mcp_servers = info["mcp_servers"]
+            await db.commit()
+        logger.info("Agent discovery complete.")
+    except Exception as e:
+        logger.warning("Agent discovery failed (non-fatal): %s", e)
+
     logger.info("Seed data check complete.")
 
 
@@ -313,14 +336,21 @@ async def _seed_copilots(db: AsyncSession):
 
 
 async def _seed_system_agents(db: AsyncSession):
-    """Seed system/tools agents if not exist. Does NOT commit — caller commits."""
+    """Seed/update system agents. Updates existing rows with latest config."""
     for agent_data in SYSTEM_AGENTS:
         result = await db.execute(
             select(AgentConfig).where(AgentConfig.name == agent_data["name"])
         )
-        if not result.scalar_one_or_none():
+        existing = result.scalar_one_or_none()
+        if not existing:
             db.add(AgentConfig(**agent_data))
             logger.info("Created system agent: %s", agent_data["display_name"])
+        else:
+            # Update fields that may have changed (include 'available' to reset if discovery previously disabled)
+            for key in ["preferred_agent", "modes", "provider", "model_name", "install_hint", "tools", "mcp_servers", "available"]:
+                if key in agent_data:
+                    setattr(existing, key, agent_data[key])
+            logger.info("Updated system agent: %s", agent_data["display_name"])
 
 
 async def _seed_default_skills(db: AsyncSession):

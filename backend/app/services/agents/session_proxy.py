@@ -5,8 +5,21 @@ from app.models.agent_session import AgentSession
 from app.models.agent_message import AgentMessage
 
 
-async def create_session(db: AsyncSession, agent_name: str, user_id: str, title: str = "New Chat") -> AgentSession:
-    session = AgentSession(agent_name=agent_name, user_id=user_id, title=title)
+async def create_session(
+    db: AsyncSession,
+    agent_name: str,
+    user_id: str,
+    title: str = "New Chat",
+    mode: str = "ask",
+    source: str = "playground",
+) -> AgentSession:
+    session = AgentSession(
+        agent_name=agent_name,
+        user_id=user_id,
+        title=title,
+        mode=mode,
+        source=source,
+    )
     db.add(session)
     await db.commit()
     await db.refresh(session)
@@ -42,3 +55,21 @@ async def get_messages(db: AsyncSession, session_id: str) -> list[AgentMessage]:
         .order_by(AgentMessage.created_at.asc())
     )
     return list(result.scalars().all())
+
+
+async def update_native_session_id(db: AsyncSession, session_id: str, native_session_id: str):
+    session = await get_session(db, session_id)
+    if session:
+        session.native_session_id = native_session_id
+        await db.commit()
+
+
+async def delete_session(db: AsyncSession, session_id: str, user_id: str | None = None) -> bool:
+    session = await get_session(db, session_id)
+    if not session:
+        return False
+    if user_id and session.user_id != user_id:
+        return False
+    await db.delete(session)
+    await db.commit()
+    return True

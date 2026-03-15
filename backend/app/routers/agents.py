@@ -1,4 +1,5 @@
 import json
+import logging
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -15,12 +16,14 @@ from app.schemas.agent_config import (
     AgentConfigAdminResponse, AgentConfigCreate, AgentConfigUpdate, AdapterInfo,
 )
 from app.services.agents import session_proxy, dispatcher
-from app.services.agents.base import AgentRequest, AgentContext
+from app.services.agents.base import AgentRequest, AgentContext, AgentMode
+from app.services.agents.discovery import ADAPTER_TO_CONFIG_NAME
 from app.services.agents.registry import registry
 from app.services.agent_skill_service import AgentSkillService
 from app.schemas.skill import SkillBriefResponse, SkillAssignRequest
 from app.routers.admin import require_admin
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -41,6 +44,42 @@ async def list_adapters(_: User = Depends(require_admin)):
         available = await adapter.is_available()
         result.append(AdapterInfo(name=name, available=available))
     return result
+
+
+@router.post("/refresh")
+async def refresh_agents(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Re-probe all CLI agents and update DB with discovered info."""
+    from app.services.agents.discovery import discover_all_agents
+
+    results = await discover_all_agents()
+
+    updated = []
+    for info in results:
+        agent_name = info["name"]
+        config_name = ADAPTER_TO_CONFIG_NAME.get(agent_name, agent_name)
+
+        result = await db.execute(select(AgentConfig).where(AgentConfig.name == config_name))
+        config = result.scalar_one_or_none()
+        if not config:
+            continue
+
+        config.available = info.get("available", False)
+        if "version" in info:
+            config.version = info["version"]
+        if "tools" in info:
+            config.tools = info["tools"]
+        if "mcp_servers" in info:
+            config.mcp_servers = info["mcp_servers"]
+        if "model_name" in info:
+            config.model_name = info["model_name"]
+
+        updated.append({"name": config_name, "available": config.available, "version": config.version})
+
+    await db.commit()
+    return {"refreshed": updated}
 
 
 @router.post("/configs", response_model=AgentConfigAdminResponse, status_code=201)
@@ -124,6 +163,21 @@ async def delete_agent_config(
     await db.commit()
 
 
+# --- Agent config read endpoint ---
+
+
+@router.get("/configs/{agent_name}/local-config")
+async def get_agent_local_config(
+    agent_name: str,
+    _: User = Depends(require_admin),
+):
+    """Read agent's local config file with redacted secrets."""
+    from app.services.agents.discovery import discover_agent, redact_sensitive
+    info = await discover_agent(agent_name)
+    config = info.get("config", {})
+    return redact_sensitive(config)
+
+
 # --- Agent-Skill assignment endpoints ---
 
 
@@ -162,6 +216,21 @@ async def remove_skill_from_agent(
         raise HTTPException(404, "Assignment not found")
 
 
+# --- Session delete endpoint ---
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+async def delete_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Delete a session and its messages."""
+    deleted = await session_proxy.delete_session(db, session_id, user_id=user.id)
+    if not deleted:
+        raise HTTPException(404, "Session not found")
+
+
 # --- Public endpoints ---
 
 
@@ -181,7 +250,10 @@ async def create_session(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    session = await session_proxy.create_session(db, body.agent_name, user.id)
+    session = await session_proxy.create_session(
+        db, body.agent_name, user.id,
+        mode=body.mode, source=body.source,
+    )
     return session
 
 
@@ -212,20 +284,18 @@ async def chat_sync(
     user: User = Depends(get_current_user),
 ):
     """Non-streaming chat (for simple requests). Returns full response."""
-    # Create or get session
     if body.session_id:
         session = await session_proxy.get_session(db, body.session_id)
+        if not session:
+            raise HTTPException(404, "Session not found")
     else:
         session = await session_proxy.create_session(db, "yoga-general", user.id)
 
-    # Save user message
     await session_proxy.add_message(db, session.id, "user", body.message)
 
-    # Get history
     messages = await session_proxy.get_messages(db, session.id)
     history = [{"role": m.role, "content": m.content} for m in messages[:-1]]
 
-    # Dispatch
     request = AgentRequest(
         prompt=body.message,
         agent_name=session.agent_name,
@@ -240,10 +310,67 @@ async def chat_sync(
         elif event.type == "error":
             return AgentEventResponse(type="error", content=event.content, session_id=session.id)
 
-    # Save assistant message
     await session_proxy.add_message(db, session.id, "assistant", full_response)
 
     return AgentEventResponse(type="done", content=full_response, session_id=session.id)
+
+
+def _mode_str_to_enum(mode_str: str) -> AgentMode:
+    """Convert mode string to AgentMode enum."""
+    mapping = {
+        "plan": AgentMode.PLAN,
+        "ask": AgentMode.ASK,
+        "code": AgentMode.CODE,
+        "chat": AgentMode.CHAT,
+    }
+    return mapping.get(mode_str, AgentMode.ASK)
+
+
+async def _stream_adapter(
+    websocket: WebSocket,
+    adapter: object,
+    request: AgentRequest,
+    adapter_name: str,
+) -> tuple[str, str | None]:
+    """Stream events from a CLI adapter to the WebSocket.
+
+    Returns (full_response_text, native_session_id).
+    """
+    full_response = ""
+    native_session_id: str | None = None
+    try:
+        async for event in adapter.execute(request):  # type: ignore[union-attr]
+            if event.type == "session_init":
+                sid = event.session_id or event.metadata.get("session_id", "")
+                if sid:
+                    native_session_id = str(sid)
+                continue
+            await websocket.send_json({"type": event.type, "content": event.content})
+            if event.type in ("text", "code"):
+                full_response += event.content
+    except Exception as exc:
+        logger.exception("Error streaming from adapter %s", adapter_name)
+        await websocket.send_json({"type": "error", "content": str(exc)})
+    await websocket.send_json({"type": "done", "content": ""})
+    return full_response, native_session_id
+
+
+async def _stream_dispatcher(
+    websocket: WebSocket,
+    db: AsyncSession,
+    agent_name: str,
+    request: AgentRequest,
+) -> str:
+    """Stream events from the dispatcher to the WebSocket.
+
+    Returns the full response text.
+    """
+    full_response = ""
+    async for event in dispatcher.dispatch(db, agent_name, request):
+        await websocket.send_json({"type": event.type, "content": event.content})
+        if event.type == "text":
+            full_response += event.content
+    return full_response
 
 
 @router.websocket("/ws/{agent_name}")
@@ -258,6 +385,7 @@ async def agent_chat_ws(websocket: WebSocket, agent_name: str):
             message = payload.get("message", "")
             session_id = payload.get("session_id", "")
             token = payload.get("token", "")
+            mode = payload.get("mode", "ask")
 
             # Verify token
             from app.services.auth_service import verify_token
@@ -272,8 +400,14 @@ async def agent_chat_ws(websocket: WebSocket, agent_name: str):
                 # Create or get session
                 if session_id:
                     session = await session_proxy.get_session(db, session_id)
+                    if not session:
+                        await websocket.send_json({"type": "error", "content": "Session not found"})
+                        continue
                 else:
-                    session = await session_proxy.create_session(db, agent_name, user_id)
+                    session = await session_proxy.create_session(
+                        db, agent_name, user_id,
+                        mode=mode, source="playground",
+                    )
                     await websocket.send_json({"type": "session", "session_id": session.id})
 
                 # Save user message
@@ -283,23 +417,45 @@ async def agent_chat_ws(websocket: WebSocket, agent_name: str):
                 messages = await session_proxy.get_messages(db, session.id)
                 history = [{"role": m.role, "content": m.content} for m in messages[:-1]]
 
-                # Dispatch with streaming
+                # Build request with mode and native session ID for CLI resumption
+                agent_mode = _mode_str_to_enum(mode)
                 request = AgentRequest(
                     prompt=message,
                     agent_name=agent_name,
+                    session_id=session.native_session_id or "",
+                    mode=agent_mode,
                     history=history,
                     context=AgentContext(user_id=user_id),
                 )
 
-                full_response = ""
-                async for event in dispatcher.dispatch(db, agent_name, request):
-                    await websocket.send_json({"type": event.type, "content": event.content})
-                    if event.type == "text":
-                        full_response += event.content
+                # Check if system agent — use adapter directly
+                agent_result = await db.execute(
+                    select(AgentConfig).where(AgentConfig.name == agent_name)
+                )
+                agent_config = agent_result.scalar_one_or_none()
 
-                # Save assistant response
+                full_response = ""
+                native_session_id = None
+
+                if agent_config and agent_config.agent_type == "system":
+                    adapter = registry.get(agent_config.preferred_agent)
+                    if adapter and await adapter.is_available():
+                        full_response, native_session_id = await _stream_adapter(
+                            websocket, adapter, request, agent_config.preferred_agent,
+                        )
+                    else:
+                        full_response = await _stream_dispatcher(
+                            websocket, db, agent_name, request,
+                        )
+                else:
+                    full_response = await _stream_dispatcher(
+                        websocket, db, agent_name, request,
+                    )
+
                 if full_response:
                     await session_proxy.add_message(db, session.id, "assistant", full_response)
+                if native_session_id:
+                    await session_proxy.update_native_session_id(db, session.id, native_session_id)
 
     except WebSocketDisconnect:
         pass
