@@ -7,6 +7,12 @@ export interface AgentConfig {
   available: boolean;
   skills: string[];
   preferred_agent: string;
+  agent_type: "copilot" | "system";
+  modes?: string[];
+  version?: string;
+  provider?: string;
+  model_name?: string;
+  install_hint?: string;
 }
 
 export interface AgentSession {
@@ -41,6 +47,14 @@ export interface AgentConfigAdmin {
   fallback_agents: string[];
   available: boolean;
   model_config_json: Record<string, unknown>;
+  agent_type: "copilot" | "system";
+  modes?: string[];
+  version?: string;
+  provider?: string;
+  model_name?: string;
+  install_hint?: string;
+  tools?: string[];
+  mcp_servers?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -56,6 +70,14 @@ export interface AgentConfigCreate {
   fallback_agents?: string[];
   available?: boolean;
   model_config_json?: Record<string, unknown>;
+  agent_type?: "copilot" | "system";
+  modes?: string[];
+  version?: string;
+  provider?: string;
+  model_name?: string;
+  install_hint?: string;
+  tools?: string[];
+  mcp_servers?: string[];
 }
 
 export interface AgentConfigUpdate {
@@ -68,6 +90,14 @@ export interface AgentConfigUpdate {
   fallback_agents?: string[];
   available?: boolean;
   model_config_json?: Record<string, unknown>;
+  agent_type?: "copilot" | "system";
+  modes?: string[];
+  version?: string;
+  provider?: string;
+  model_name?: string;
+  install_hint?: string;
+  tools?: string[];
+  mcp_servers?: string[];
 }
 
 export interface AdapterInfo {

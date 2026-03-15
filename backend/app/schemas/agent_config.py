@@ -18,12 +18,22 @@ class AgentConfigAdminResponse(BaseModel):
     fallback_agents: list[str]
     available: bool
     model_config_json: dict
+    agent_type: str = "copilot"
+    modes: list[str] | None = None
+    version: str | None = None
+    provider: str | None = None
+    model_name: str | None = None
+    install_hint: str | None = None
+    tools: list | None = None
+    mcp_servers: list | None = None
     created_at: datetime
     updated_at: datetime
 
 
 class AgentConfigCreate(BaseModel):
     """Schema for creating a new agent configuration."""
+
+    model_config = {"protected_namespaces": ()}
 
     name: str
     display_name: str
@@ -35,10 +45,20 @@ class AgentConfigCreate(BaseModel):
     fallback_agents: list[str] = ["mock"]
     available: bool = True
     model_config_json: dict = {}
+    agent_type: str = "copilot"
+    modes: list[str] | None = None
+    version: str | None = None
+    provider: str | None = None
+    model_name: str | None = None
+    install_hint: str | None = None
+    tools: list | None = None
+    mcp_servers: list | None = None
 
 
 class AgentConfigUpdate(BaseModel):
     """Schema for partial updates to an agent configuration."""
+
+    model_config = {"protected_namespaces": ()}
 
     display_name: str | None = None
     icon: str | None = None
@@ -49,6 +69,14 @@ class AgentConfigUpdate(BaseModel):
     fallback_agents: list[str] | None = None
     available: bool | None = None
     model_config_json: dict | None = None
+    agent_type: str | None = None
+    modes: list[str] | None = None
+    version: str | None = None
+    provider: str | None = None
+    model_name: str | None = None
+    install_hint: str | None = None
+    tools: list | None = None
+    mcp_servers: list | None = None
 
 
 class AdapterInfo(BaseModel):

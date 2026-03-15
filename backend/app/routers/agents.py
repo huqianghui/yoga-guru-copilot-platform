@@ -17,6 +17,8 @@ from app.schemas.agent_config import (
 from app.services.agents import session_proxy, dispatcher
 from app.services.agents.base import AgentRequest, AgentContext
 from app.services.agents.registry import registry
+from app.services.agent_skill_service import AgentSkillService
+from app.schemas.skill import SkillBriefResponse, SkillAssignRequest
 from app.routers.admin import require_admin
 
 router = APIRouter()
@@ -65,6 +67,14 @@ async def create_agent_config(
         fallback_agents=body.fallback_agents,
         available=body.available,
         model_config_json=body.model_config_json,
+        agent_type=body.agent_type,
+        modes=body.modes,
+        version=body.version,
+        provider=body.provider,
+        model_name=body.model_name,
+        install_hint=body.install_hint,
+        tools=body.tools,
+        mcp_servers=body.mcp_servers,
     )
     db.add(agent)
     await db.commit()
@@ -112,6 +122,44 @@ async def delete_agent_config(
 
     await db.delete(agent)
     await db.commit()
+
+
+# --- Agent-Skill assignment endpoints ---
+
+
+@router.get("/{agent_name}/skills", response_model=list[SkillBriefResponse])
+async def list_agent_skills(
+    agent_name: str,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    svc = AgentSkillService(db)
+    return await svc.list_skills_for_agent(agent_name)
+
+
+@router.post("/{agent_name}/skills", status_code=201)
+async def assign_skill_to_agent(
+    agent_name: str,
+    body: SkillAssignRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    svc = AgentSkillService(db)
+    link = await svc.assign_skill(agent_name, body.skill_id)
+    return {"id": link.id, "agent_name": link.agent_name, "skill_id": link.skill_id}
+
+
+@router.delete("/{agent_name}/skills/{skill_id}", status_code=204)
+async def remove_skill_from_agent(
+    agent_name: str,
+    skill_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    svc = AgentSkillService(db)
+    removed = await svc.remove_skill(agent_name, skill_id)
+    if not removed:
+        raise HTTPException(404, "Assignment not found")
 
 
 # --- Public endpoints ---

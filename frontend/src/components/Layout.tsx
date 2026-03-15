@@ -1,5 +1,5 @@
 import { Outlet, Link, Navigate, useLocation } from "react-router";
-import { Video, Calendar, FileQuestion, Image, LayoutDashboard, Menu, LogOut, Settings, Bot } from "lucide-react";
+import { Video, Calendar, FileQuestion, Image, LayoutDashboard, Menu, LogOut, Settings, Bot, Zap } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,6 +14,7 @@ const navItems = [
   { path: "/photo-processing", label: "照片处理", icon: Image },
   { path: "/admin/settings", label: "系统配置", icon: Settings },
   { path: "/admin/agents", label: "Agent 管理", icon: Bot },
+  { path: "/admin/skills", label: "Skills 管理", icon: Zap },
 ];
 
 export default function Layout() {

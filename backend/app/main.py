@@ -32,7 +32,7 @@ app.add_middleware(
 
 def register_routers():
     """Register routers — called after all router modules exist."""
-    from app.routers import auth, users, agents, dashboard, courses, surveys, videos, health, admin
+    from app.routers import auth, users, agents, dashboard, courses, surveys, videos, health, admin, skills
     app.include_router(health.router, prefix="/api", tags=["health"])
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
     app.include_router(users.router, prefix="/api/users", tags=["users"])
@@ -42,6 +42,7 @@ def register_routers():
     app.include_router(courses.router, prefix="/api/courses", tags=["courses"])
     app.include_router(surveys.router, prefix="/api/surveys", tags=["surveys"])
     app.include_router(videos.router, prefix="/api/videos", tags=["videos"])
+    app.include_router(skills.router, prefix="/api/skills", tags=["skills"])
 
 
 register_routers()

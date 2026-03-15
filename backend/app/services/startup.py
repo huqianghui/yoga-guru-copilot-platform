@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal, engine, Base
 from app.models.user import User
 from app.models.agent_config import AgentConfig
+from app.models.skill import Skill
 from app.services.auth_service import hash_password
 
 logger = logging.getLogger(__name__)
@@ -130,6 +131,140 @@ YOGA_COPILOTS = [
     },
 ]
 
+SYSTEM_AGENTS = [
+    {
+        "name": "claude-code",
+        "display_name": "Claude Code",
+        "icon": "\U0001f7e3",
+        "description": "Anthropic's agentic coding tool — plan, code, debug via CLI",
+        "system_prompt": "",
+        "agent_type": "system",
+        "preferred_agent": "mock",
+        "modes": ["plan", "ask", "code"],
+        "provider": "Anthropic",
+        "model_name": "claude-sonnet-4",
+        "install_hint": "npm install -g @anthropic-ai/claude-code",
+        "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Agent"],
+        "mcp_servers": [],
+        "available": True,
+    },
+    {
+        "name": "codex-cli",
+        "display_name": "Codex CLI",
+        "icon": "\U0001f7e2",
+        "description": "OpenAI's open-source coding agent — lightweight CLI for code tasks",
+        "system_prompt": "",
+        "agent_type": "system",
+        "preferred_agent": "mock",
+        "modes": ["ask", "code"],
+        "provider": "OpenAI",
+        "model_name": "o4-mini",
+        "install_hint": "npm install -g @openai/codex",
+        "tools": ["shell", "file_read", "file_write", "file_edit"],
+        "mcp_servers": [],
+        "available": True,
+    },
+    {
+        "name": "github-copilot",
+        "display_name": "GitHub Copilot",
+        "icon": "\U0001f535",
+        "description": "GitHub's AI pair programmer — code completion and chat",
+        "system_prompt": "",
+        "agent_type": "system",
+        "preferred_agent": "mock",
+        "modes": ["ask", "code"],
+        "provider": "GitHub / Microsoft",
+        "model_name": "gpt-4o",
+        "install_hint": "gh extension install github/gh-copilot",
+        "tools": ["code-completion", "code-review", "test-generation"],
+        "mcp_servers": [],
+        "available": True,
+    },
+    {
+        "name": "opencode",
+        "display_name": "OpenCode",
+        "icon": "\U0001f7e0",
+        "description": "Open-source terminal-based AI coding assistant",
+        "system_prompt": "",
+        "agent_type": "system",
+        "preferred_agent": "mock",
+        "modes": ["ask", "code"],
+        "provider": "Community",
+        "model_name": "configurable",
+        "install_hint": "go install github.com/opencode-ai/opencode@latest",
+        "tools": ["file", "shell", "browser"],
+        "mcp_servers": [],
+        "available": True,
+    },
+]
+
+DEFAULT_SKILLS = [
+    {
+        "name": "yoga-sequence-generator",
+        "display_name": "Yoga Sequence Generator",
+        "description": "Generate yoga class sequences based on level, duration, and focus area",
+        "skill_type": "bundled",
+        "category": "yoga",
+        "content": "You are a yoga sequence planning expert. Given a class level, duration, and focus area, generate a structured sequence of poses with timing and transitions.",
+    },
+    {
+        "name": "pose-database",
+        "display_name": "Pose Database Lookup",
+        "description": "Look up yoga poses with Sanskrit names, benefits, and contraindications",
+        "skill_type": "bundled",
+        "category": "yoga",
+        "content": "You have access to a comprehensive yoga pose database. Help users find poses by name, category, or body area, providing Sanskrit names, benefits, modifications, and contraindications.",
+    },
+    {
+        "name": "video-analysis",
+        "display_name": "Teaching Video Analysis",
+        "description": "Analyze teaching videos for style, rhythm, and guidance quality",
+        "skill_type": "bundled",
+        "category": "video",
+        "content": "Analyze yoga teaching videos to extract teaching style, rhythm patterns, guidance methods, and core philosophy.",
+    },
+    {
+        "name": "survey-generator",
+        "display_name": "Survey Generator",
+        "description": "Generate student feedback surveys with appropriate question types",
+        "skill_type": "bundled",
+        "category": "survey",
+        "content": "Generate student feedback surveys for yoga classes, including rating scales, open-ended questions, and satisfaction metrics.",
+    },
+    {
+        "name": "code-review",
+        "display_name": "Code Review",
+        "description": "Review code for quality, security, and best practices",
+        "skill_type": "managed",
+        "category": "development",
+        "content": "Review code changes for quality, security vulnerabilities, performance issues, and adherence to best practices. Provide constructive feedback with specific suggestions.",
+    },
+    {
+        "name": "test-generation",
+        "display_name": "Test Generation",
+        "description": "Generate unit and integration tests for code",
+        "skill_type": "managed",
+        "category": "development",
+        "content": "Generate comprehensive test cases including unit tests, integration tests, and edge cases. Follow TDD principles and project testing conventions.",
+    },
+    {
+        "name": "documentation-writer",
+        "display_name": "Documentation Writer",
+        "description": "Generate and update project documentation",
+        "skill_type": "managed",
+        "category": "development",
+        "content": "Write and update documentation including API docs, user guides, and inline code comments. Follow the project's documentation standards.",
+    },
+    {
+        "name": "caption-writer",
+        "display_name": "Caption Writer",
+        "description": "Write social media captions with brand voice for yoga content",
+        "skill_type": "bundled",
+        "category": "content",
+        "content": "Write engaging social media captions for yoga photos and videos, maintaining brand voice and optimizing for engagement.",
+    },
+]
+
 
 async def ensure_tables():
     """Create all tables if they don't exist. Idempotent."""
@@ -139,10 +274,12 @@ async def ensure_tables():
 
 
 async def seed_initial_data():
-    """Seed default users and copilot configs. Skips existing records."""
+    """Seed default users, copilots, system agents, and skills. Skips existing records."""
     async with AsyncSessionLocal() as db:
         await _seed_users(db)
         await _seed_copilots(db)
+        await _seed_system_agents(db)
+        await _seed_default_skills(db)
         await db.commit()
     logger.info("Seed data check complete.")
 
@@ -173,3 +310,25 @@ async def _seed_copilots(db: AsyncSession):
             config = AgentConfig(**copilot_data)
             db.add(config)
             logger.info("Created copilot: %s", copilot_data["display_name"])
+
+
+async def _seed_system_agents(db: AsyncSession):
+    """Seed system/tools agents if not exist. Does NOT commit — caller commits."""
+    for agent_data in SYSTEM_AGENTS:
+        result = await db.execute(
+            select(AgentConfig).where(AgentConfig.name == agent_data["name"])
+        )
+        if not result.scalar_one_or_none():
+            db.add(AgentConfig(**agent_data))
+            logger.info("Created system agent: %s", agent_data["display_name"])
+
+
+async def _seed_default_skills(db: AsyncSession):
+    """Seed default skills if not exist. Does NOT commit — caller commits."""
+    for skill_data in DEFAULT_SKILLS:
+        result = await db.execute(
+            select(Skill).where(Skill.name == skill_data["name"])
+        )
+        if not result.scalar_one_or_none():
+            db.add(Skill(**skill_data, available=True))
+            logger.info("Created skill: %s", skill_data["display_name"])
